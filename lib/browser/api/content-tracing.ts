@@ -1,5 +1,4 @@
-'use strict'
-const { deprecate } = require('electron')
+import { deprecate } from 'electron'
 const contentTracing = process.atomBinding('content_tracing')
 
 contentTracing.getCategories = deprecate.promisify(contentTracing.getCategories)
@@ -7,4 +6,4 @@ contentTracing.startRecording = deprecate.promisify(contentTracing.startRecordin
 contentTracing.stopRecording = deprecate.promisify(contentTracing.stopRecording)
 contentTracing.getTraceBufferUsage = deprecate.promisifyMultiArg(contentTracing.getTraceBufferUsage)
 
-module.exports = contentTracing
+export default contentTracing
