@@ -68,7 +68,7 @@ bool ShowOpenDialogSync(const DialogSettings& settings,
                         std::vector<base::FilePath>* paths);
 
 void ShowOpenDialog(const DialogSettings& settings,
-                    scoped_refptr<atom::util::Promise> promise);
+                    atom::util::Promise promise);
 
 bool ShowSaveDialog(const DialogSettings& settings, base::FilePath* path);
 

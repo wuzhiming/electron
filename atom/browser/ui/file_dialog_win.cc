@@ -81,22 +81,23 @@ bool CreateDialogThread(RunState* run_state) {
   return true;
 }
 
-void OnDialogOpened(scoped_refptr<atom::util::Promise> promise,
+void OnDialogOpened(atom::util::Promise promise,
                     bool canceled,
                     std::vector<base::FilePath> paths) {
-  mate::Dictionary dict = mate::Dictionary::CreateEmpty(promise->isolate());
+  mate::Dictionary dict = mate::Dictionary::CreateEmpty(promise.isolate());
   dict.Set("canceled", canceled);
   dict.Set("filePaths", paths);
-  promise->Resolve(dict.GetHandle());
+  promise.Resolve(dict.GetHandle());
 }
 
 void RunOpenDialogInNewThread(const RunState& run_state,
                               const DialogSettings& settings,
-                              scoped_refptr<atom::util::Promise> promise) {
+                              atom::util::Promise promise) {
   std::vector<base::FilePath> paths;
   bool result = ShowOpenDialogSync(settings, &paths);
   run_state.ui_task_runner->PostTask(
-      FROM_HERE, base::Bind(&OnDialogOpened, promise, result, paths));
+      FROM_HERE,
+      base::Bind(&OnDialogOpened, std::move(promise), result, paths));
   run_state.ui_task_runner->DeleteSoon(FROM_HERE, run_state.dialog_thread);
 }
 
@@ -260,17 +261,17 @@ bool ShowOpenDialogSync(const DialogSettings& settings,
 }
 
 void ShowOpenDialog(const DialogSettings& settings,
-                    scoped_refptr<atom::util::Promise> promise) {
-  mate::Dictionary dict = mate::Dictionary::CreateEmpty(promise->isolate());
+                    atom::util::Promise promise) {
+  mate::Dictionary dict = mate::Dictionary::CreateEmpty(promise.isolate());
   RunState run_state;
   if (!CreateDialogThread(&run_state)) {
     dict.Set("canceled", true);
     dict.Set("filePaths", std::vector<base::FilePath>());
-    promise->Resolve(dict.GetHandle());
+    promise.Resolve(dict.GetHandle());
   } else {
     run_state.dialog_thread->task_runner()->PostTask(
-        FROM_HERE,
-        base::Bind(&RunOpenDialogInNewThread, run_state, settings, promise));
+        FROM_HERE, base::Bind(&RunOpenDialogInNewThread, run_state, settings,
+                              std::move(promise)));
   }
 }
 

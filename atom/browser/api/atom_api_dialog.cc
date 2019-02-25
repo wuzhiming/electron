@@ -62,10 +62,10 @@ void ShowOpenDialogSync(const file_dialog::DialogSettings& settings,
 v8::Local<v8::Promise> ShowOpenDialog(
     const file_dialog::DialogSettings& settings,
     mate::Arguments* args) {
-  scoped_refptr<atom::util::Promise> promise =
-      new atom::util::Promise(args->isolate());
-  file_dialog::ShowOpenDialog(settings, promise);
-  return promise->GetHandle();
+  atom::util::Promise promise(args->isolate());
+  v8::Local<v8::Promise> handle = promise.GetHandle();
+  file_dialog::ShowOpenDialog(settings, std::move(promise));
+  return handle;
 }
 
 void ShowSaveDialog(const file_dialog::DialogSettings& settings,

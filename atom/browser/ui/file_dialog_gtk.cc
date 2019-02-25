@@ -131,7 +131,7 @@ class FileChooserDialog {
     RunAsynchronous();
   }
 
-  void RunOpenAsynchronous(scoped_refptr<atom::util::Promise> promise) {
+  void RunOpenAsynchronous(atom::util::Promise promise) {
     open_promise_ = promise;
     RunAsynchronous();
   }
@@ -174,7 +174,7 @@ class FileChooserDialog {
 
   Filters filters_;
   SaveDialogCallback save_callback_;
-  scoped_refptr<atom::util::Promise> open_promise_;
+  atom::util::Promise open_promise_;
 
   // Callback for when we update the preview for the selection.
   CHROMEG_CALLBACK_0(FileChooserDialog, void, OnUpdatePreview, GtkWidget*);
@@ -192,7 +192,7 @@ void FileChooserDialog::OnFileDialogResponse(GtkWidget* widget, int response) {
       save_callback_.Run(false, base::FilePath());
   } else if (!open_promise_.is_null()) {
     mate::Dictionary dict =
-        mate::Dictionary::CreateEmpty(open_promise_->isolate());
+        mate::Dictionary::CreateEmpty(open_promise_.isolate());
     if (response == GTK_RESPONSE_ACCEPT) {
       dict.Set("canceled", false);
       dict.Set("filePaths", GetFileNames());
@@ -200,7 +200,7 @@ void FileChooserDialog::OnFileDialogResponse(GtkWidget* widget, int response) {
       dict.Set("canceled", true);
       dict.Set("filePaths", std::vector<base::FilePath>());
     }
-    open_promise_->Resolve(dict.GetHandle());
+    open_promise_.Resolve(dict.GetHandle());
   }
   delete this;
 }
@@ -276,7 +276,7 @@ bool ShowOpenDialogSync(const DialogSettings& settings,
 }
 
 void ShowOpenDialog(const DialogSettings& settings,
-                    scoped_refptr<atom::util::Promise> promise) {
+                    atom::util::Promise promise) {
   GtkFileChooserAction action = GTK_FILE_CHOOSER_ACTION_OPEN;
   if (settings.properties & FILE_DIALOG_OPEN_DIRECTORY)
     action = GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER;
