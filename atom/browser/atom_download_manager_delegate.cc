@@ -121,14 +121,13 @@ void AtomDownloadManagerDelegate::OnDownloadPathGenerated(
     settings.force_detached = offscreen;
 
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
-    scoped_refptr<atom::util::Promise> dialog_promise =
-        new atom::util::Promise(isolate);
+    atom::util::Promise dialog_promise(isolate);
     auto dialog_callback =
         base::Bind(&AtomDownloadManagerDelegate::OnDownloadSaveDialogDone,
                    base::Unretained(this), download_id, callback);
 
-    file_dialog::ShowSaveDialog(settings, dialog_promise);
-    ignore_result(dialog_promise->Then(dialog_callback));
+    file_dialog::ShowSaveDialog(settings, std::move(dialog_promise));
+    ignore_result(dialog_promise.Then(dialog_callback));
   } else {
     callback.Run(path, download::DownloadItem::TARGET_DISPOSITION_PROMPT,
                  download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS, path,

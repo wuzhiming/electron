@@ -67,18 +67,20 @@ void ShowOpenDialog(const file_dialog::DialogSettings& settings,
 }
 
 void ShowSaveDialogSync(const file_dialog::DialogSettings& settings,
-                    mate::Arguments* args) {
+                        mate::Arguments* args) {
   base::FilePath path;
-    if (file_dialog::ShowSaveDialogSync(settings, &path))
-      args->Return(path);
+  if (file_dialog::ShowSaveDialogSync(settings, &path))
+    args->Return(path);
 }
 
-v8::Local<v8::Promise> ShowSaveDialog(const file_dialog::DialogSettings& settings,
-                    mate::Arguments* args) {
-  scoped_refptr<atom::util::Promise> promise =
-      new atom::util::Promise(args->isolate());
-  file_dialog::ShowSaveDialog(settings, promise);
-  return promise->GetHandle();
+v8::Local<v8::Promise> ShowSaveDialog(
+    const file_dialog::DialogSettings& settings,
+    mate::Arguments* args) {
+  atom::util::Promise promise(args->isolate());
+  v8::Local<v8::Promise> handle = promise.GetHandle();
+
+  file_dialog::ShowSaveDialog(settings, std::move(promise));
+  return handle;
 }
 
 void Initialize(v8::Local<v8::Object> exports,

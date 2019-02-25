@@ -91,22 +91,23 @@ void RunOpenDialogInNewThread(const RunState& run_state,
   run_state.ui_task_runner->DeleteSoon(FROM_HERE, run_state.dialog_thread);
 }
 
-void OnSaveDialogDone(scoped_refptr<atom::util::Promise> promise,
-                    bool canceled,
-                    const base::FilePath path) {
-  mate::Dictionary dict = mate::Dictionary::CreateEmpty(promise->isolate());
+void OnSaveDialogDone(atom::util::Promise promise,
+                      bool canceled,
+                      const base::FilePath path) {
+  mate::Dictionary dict = mate::Dictionary::CreateEmpty(promise.isolate());
   dict.Set("canceled", canceled);
   dict.Set("filename", path);
-  promise->Resolve(dict.GetHandle());
+  promise.Resolve(dict.GetHandle());
 }
 
 void RunSaveDialogInNewThread(const RunState& run_state,
                               const DialogSettings& settings,
-                              scoped_refptr<atom::util::Promise> promise) {
+                              atom::util::Promise promise) {
   base::FilePath path;
   bool result = ShowSaveDialogSync(settings, &path);
-  run_state.ui_task_runner->PostTask(FROM_HERE,
-                                     base::Bind(&OnSaveDialogDone, promise, result, path));
+  run_state.ui_task_runner->PostTask(
+      FROM_HERE,
+      base::Bind(&OnSaveDialogDone, std::move(promise), result, path));
   run_state.ui_task_runner->DeleteSoon(FROM_HERE, run_state.dialog_thread);
 }
 
@@ -303,17 +304,17 @@ bool ShowSaveDialogSync(const DialogSettings& settings, base::FilePath* path) {
 }
 
 void ShowSaveDialog(const DialogSettings& settings,
-                    scoped_refptr<atom::util::Promise> promise) {
+                    atom::util::Promise promise) {
   RunState run_state;
   if (!CreateDialogThread(&run_state)) {
-    mate::Dictionary dict = mate::Dictionary::CreateEmpty(promise->isolate());
+    mate::Dictionary dict = mate::Dictionary::CreateEmpty(promise.isolate());
     dict.Set("canceled", false);
     dict.Set("filename", base::FilePath());
-    promise->Resolve(dict.GetHandle());
+    promise.Resolve(dict.GetHandle());
   } else {
     run_state.dialog_thread->task_runner()->PostTask(
-      FROM_HERE,
-      base::Bind(&RunSaveDialogInNewThread, run_state, settings, promise));
+        FROM_HERE, base::Bind(&RunSaveDialogInNewThread, run_state, settings,
+                              std::move(promise)));
   }
 }
 

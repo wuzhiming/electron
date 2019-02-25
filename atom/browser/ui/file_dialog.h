@@ -74,7 +74,7 @@ void ShowOpenDialog(const DialogSettings& settings,
 bool ShowSaveDialogSync(const DialogSettings& settings, base::FilePath* path);
 
 void ShowSaveDialog(const DialogSettings& settings,
-                    scoped_refptr<atom::util::Promise> promise);
+                    atom::util::Promise promise);
 
 }  // namespace file_dialog
 

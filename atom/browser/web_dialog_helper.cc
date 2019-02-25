@@ -54,11 +54,11 @@ class FileSelectHelper : public base::RefCounted<FileSelectHelper>,
   void ShowSaveDialog(const file_dialog::DialogSettings& settings) {
     v8::Isolate* isolate = v8::Isolate::GetCurrent();
     v8::Local<v8::Context> context = isolate->GetCurrentContext();
-    scoped_refptr<atom::util::Promise> promise =
-        new atom::util::Promise(isolate);
+    atom::util::Promise promise(isolate);
+    v8::Local<v8::Promise> handle = promise.GetHandle();
 
-    file_dialog::ShowSaveDialog(settings, promise);
-    ignore_result(promise->GetHandle()->Then(
+    file_dialog::ShowSaveDialog(settings, std::move(promise));
+    ignore_result(handle->Then(
         context,
         v8::Local<v8::Function>::Cast(mate::ConvertToV8(
             isolate, base::Bind(&FileSelectHelper::OnSaveDialogDone, this)))));

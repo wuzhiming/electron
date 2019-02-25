@@ -355,8 +355,8 @@ bool ShowSaveDialogSync(const DialogSettings& settings, base::FilePath* path) {
 void SaveDialogCompletion(int chosen,
                           NSSavePanel* dialog,
                           const DialogSettings& settings,
-                          scoped_refptr<atom::util::Promise> promise) {
-  mate::Dictionary dict = mate::Dictionary::CreateEmpty(promise->isolate());
+                          atom::util::Promise promise) {
+  mate::Dictionary dict = mate::Dictionary::CreateEmpty(promise.isolate());
   if (chosen == NSFileHandlingPanelCancelButton) {
     dict.Set("canceled", true);
 #if defined(MAS_BUILD)
@@ -376,30 +376,31 @@ void SaveDialogCompletion(int chosen,
     dict.Set("bookmark", bookmark);
 #endif
   }
-  promise->Resolve(dict.GetHandle());
+  promise.Resolve(dict.GetHandle());
 }
 
 void ShowSaveDialog(const DialogSettings& settings,
-                    scoped_refptr<atom::util::Promise> p) {
+                    atom::util::Promise promise) {
   NSSavePanel* dialog = [NSSavePanel savePanel];
 
   SetupDialog(dialog, settings);
   [dialog setCanSelectHiddenExtension:YES];
 
-  __block scoped_refptr<atom::util::Promise> promise = p;
+  __block atom::util::Promise p = std::move(promise);
 
   if (!settings.parent_window || !settings.parent_window->GetNativeWindow() ||
       settings.force_detached) {
     [dialog beginWithCompletionHandler:^(NSInteger chosen) {
-      SaveDialogCompletion(chosen, dialog, settings, promise);
+      SaveDialogCompletion(chosen, dialog, settings, std::move(p));
     }];
   } else {
     NSWindow* window =
         settings.parent_window->GetNativeWindow().GetNativeNSWindow();
-    [dialog beginSheetModalForWindow:window
-                   completionHandler:^(NSInteger chosen) {
-                     SaveDialogCompletion(chosen, dialog, settings, promise);
-                   }];
+    [dialog
+        beginSheetModalForWindow:window
+               completionHandler:^(NSInteger chosen) {
+                 SaveDialogCompletion(chosen, dialog, settings, std::move(p));
+               }];
   }
 }
 
