@@ -270,8 +270,8 @@ void ShowOpenDialog(const DialogSettings& settings,
     promise.Resolve(dict.GetHandle());
   } else {
     run_state.dialog_thread->task_runner()->PostTask(
-        FROM_HERE, base::Bind(&RunOpenDialogInNewThread, run_state, settings,
-                              std::move(promise)));
+        FROM_HERE, base::BindOnce(&RunOpenDialogInNewThread, run_state,
+                                  settings, std::move(promise)));
   }
 }
 

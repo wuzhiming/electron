@@ -78,9 +78,9 @@ and a directory selector, so if you set `properties` to
 shown.
 
 ```js
-  dialog.showOpenDialogSync(mainWindow, {
-    properties: ['openFile', 'openDirectory']
-  })
+dialog.showOpenDialogSync(mainWindow, {
+  properties: ['openFile', 'openDirectory']
+})
 ```
 
 ### `dialog.showOpenDialog([browserWindow, ]options)`
@@ -145,14 +145,14 @@ and a directory selector, so if you set `properties` to
 shown.
 
 ```js
-  dialog.showOpenDialog(mainWindow, {
-    properties: ['openFile', 'openDirectory']
-  }).then(result => {
-    console.log(result.canceled)
-    console.log(result.filePaths)
-  }).catch(err => {
-    console.log(err)
-  })
+dialog.showOpenDialog(mainWindow, {
+  properties: ['openFile', 'openDirectory']
+}).then(result => {
+  console.log(result.canceled)
+  console.log(result.filePaths)
+}).catch(err => {
+  console.log(err)
+})
 ```
 
 ### `dialog.showSaveDialog([browserWindow, ]options[, callback])`
@@ -270,9 +270,9 @@ attached to the parent window, making it modal.
 
 On Windows the options are more limited, due to the Win32 APIs used:
 
- - The `message` argument is not used, as the OS provides its own confirmation
+* The `message` argument is not used, as the OS provides its own confirmation
    dialog.
- - The `browserWindow` argument is ignored since it is not possible to make
+* The `browserWindow` argument is ignored since it is not possible to make
    this confirmation dialog modal.
 
 ## Sheets
