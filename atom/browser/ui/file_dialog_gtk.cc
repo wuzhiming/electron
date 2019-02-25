@@ -132,7 +132,7 @@ class FileChooserDialog {
   }
 
   void RunOpenAsynchronous(atom::util::Promise promise) {
-    open_promise_ = promise;
+    open_promise_.reset(std::move(promise));
     RunAsynchronous();
   }
 
@@ -174,7 +174,7 @@ class FileChooserDialog {
 
   Filters filters_;
   SaveDialogCallback save_callback_;
-  atom::util::Promise open_promise_;
+  std::unique_ptr<atom::util::Promise> open_promise_;
 
   // Callback for when we update the preview for the selection.
   CHROMEG_CALLBACK_0(FileChooserDialog, void, OnUpdatePreview, GtkWidget*);
