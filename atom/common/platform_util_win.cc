@@ -28,6 +28,7 @@
 #include "base/win/scoped_co_mem.h"
 #include "base/win/scoped_com_initializer.h"
 #include "base/win/windows_version.h"
+#include "content/public/browser/browser_task_traits.h"
 #include "ui/base/win/shell.h"
 #include "url/gurl.h"
 
@@ -228,6 +229,25 @@ HRESULT DeleteFileProgressSink::ResumeTimer() {
   return S_OK;
 }
 
+void OpenExternalOnWorkerThread(const GURL& url,
+                                const OpenExternalOptions& options) {
+  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  // Quote the input scheme to be sure that the command does not have
+  // parameters unexpected by the external program. This url should already
+  // have been escaped.
+  std::string escaped_url = url.spec();
+  auto working_dir = options.working_dir.value();
+
+  if (reinterpret_cast<ULONG_PTR>(
+          ShellExecuteW(nullptr, "open", escaped_url.c_str(), nullptr,
+                        working_dir.empty() ? nullptr : working_dir.c_str(),
+                        SW_SHOWNORMAL)) <= 32) {
+    // On failure, it may be good to display a message to the user.
+    // https://crbug.com/727913
+    return;
+  }
+}
+
 }  // namespace
 
 namespace platform_util {
@@ -296,36 +316,18 @@ bool OpenItem(const base::FilePath& full_path) {
     return ui::win::OpenFileViaShell(full_path);
 }
 
-void OpenExternalOnWorkerThread(const base::string16& url,
-                                const OpenExternalOptions& options) {
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
-  // Quote the input scheme to be sure that the command does not have
-  // parameters unexpected by the external program. This url should already
-  // have been escaped.
-  std::string escaped_url = url.spec();
-  auto working_dir = options.working_dir.value();
-
-  if (reinterpret_cast<ULONG_PTR>(
-          ShellExecuteW(nullptr, L"open", escaped_url.c_str(), nullptr,
-                        working_dir.empty() ? nullptr : working_dir.c_str(),
-                        SW_SHOWNORMAL)) <= 32) {
-    // On failure, it may be good to display a message to the user.
-    // https://crbug.com/727913
-    return;
-  }
-}
-
-void OpenExternal(const GURL& url) {
-  base::CreateCOMSTATaskRunnerWithTraits(
-      {base::MayBlock(), base::TaskPriority::USER_BLOCKING})
-      ->PostTask(FROM_HERE, base::BindOnce(&OpenExternalOnWorkerThread, url));
-}
-
-void OpenExternal(const base::string16& url,
+void OpenExternal(const GURL& url,
                   const OpenExternalOptions& options,
-                  OpenExternalCallback callback) {
-  // TODO(gabriel): Implement async open if callback is specified
-  std::move(callback).Run(OpenExternal(url, options) ? "" : "Failed to open");
+                  mate::Arguments* args) {
+  OpenExternalCallback callback;
+  if (args->GetNext(&callback)) {
+    // TODO(gabriel): Implement async open if callback is specified
+    std::move(callback).Run(OpenExternal(url, options) ? "" : "Failed to open");
+  } else {
+    base::CreateCOMSTATaskRunnerWithTraits(
+        {base::MayBlock(), base::TaskPriority::USER_BLOCKING})
+        ->PostTask(FROM_HERE, base::BindOnce(&OpenExternalOnWorkerThread, url));
+  }
 }
 
 bool MoveItemToTrash(const base::FilePath& path) {
