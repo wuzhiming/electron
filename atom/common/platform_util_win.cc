@@ -23,6 +23,7 @@
 #include "base/stl_util.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/threading/scoped_blocking_call.h"
 #include "base/win/registry.h"
 #include "base/win/scoped_co_mem.h"
 #include "base/win/scoped_com_initializer.h"
@@ -295,24 +296,29 @@ bool OpenItem(const base::FilePath& full_path) {
     return ui::win::OpenFileViaShell(full_path);
 }
 
-bool OpenExternal(const base::string16& url,
-                  const OpenExternalOptions& options) {
+void OpenExternalOnWorkerThread(const base::string16& url,
+                                const OpenExternalOptions& options) {
+  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
   // Quote the input scheme to be sure that the command does not have
   // parameters unexpected by the external program. This url should already
   // have been escaped.
-  base::string16 escaped_url = L"\"" + url + L"\"";
+  std::string escaped_url = url.spec();
   auto working_dir = options.working_dir.value();
 
   if (reinterpret_cast<ULONG_PTR>(
           ShellExecuteW(nullptr, L"open", escaped_url.c_str(), nullptr,
                         working_dir.empty() ? nullptr : working_dir.c_str(),
                         SW_SHOWNORMAL)) <= 32) {
-    // We fail to execute the call. We could display a message to the user.
-    // TODO(nsylvain): we should also add a dialog to warn on errors. See
-    // bug 1136923.
-    return false;
+    // On failure, it may be good to display a message to the user.
+    // https://crbug.com/727913
+    return;
   }
-  return true;
+}
+
+void OpenExternal(const GURL& url) {
+  base::CreateCOMSTATaskRunnerWithTraits(
+      {base::MayBlock(), base::TaskPriority::USER_BLOCKING})
+      ->PostTask(FROM_HERE, base::BindOnce(&OpenExternalOnWorkerThread, url));
 }
 
 void OpenExternal(const base::string16& url,
