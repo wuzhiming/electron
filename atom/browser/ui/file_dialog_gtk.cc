@@ -132,7 +132,7 @@ class FileChooserDialog {
   }
 
   void RunOpenAsynchronous(atom::util::Promise promise) {
-    open_promise_.reset(std::move(promise));
+    open_promise_->reset(std::move(promise));
     RunAsynchronous();
   }
 
@@ -190,9 +190,9 @@ void FileChooserDialog::OnFileDialogResponse(GtkWidget* widget, int response) {
       save_callback_.Run(true, GetFileName());
     else
       save_callback_.Run(false, base::FilePath());
-  } else if (!open_promise_.is_null()) {
+  } else if (!open_promise_->is_null()) {
     mate::Dictionary dict =
-        mate::Dictionary::CreateEmpty(open_promise_.isolate());
+        mate::Dictionary::CreateEmpty(open_promise_->isolate());
     if (response == GTK_RESPONSE_ACCEPT) {
       dict.Set("canceled", false);
       dict.Set("filePaths", GetFileNames());
@@ -200,7 +200,7 @@ void FileChooserDialog::OnFileDialogResponse(GtkWidget* widget, int response) {
       dict.Set("canceled", true);
       dict.Set("filePaths", std::vector<base::FilePath>());
     }
-    open_promise_.Resolve(dict.GetHandle());
+    open_promise_->Resolve(dict.GetHandle());
   }
   delete this;
 }
