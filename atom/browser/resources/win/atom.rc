@@ -66,13 +66,13 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "CompanyName", "GitHub, Inc."
-            VALUE "FileDescription", "Electron"
+            VALUE "CompanyName", "Chukong Technologies, Inc."
+            VALUE "FileDescription", "CocosCreator"
             VALUE "FileVersion", "5.0.0"
-            VALUE "InternalName", "electron.exe"
-            VALUE "LegalCopyright", "Copyright (C) 2015 GitHub, Inc. All rights reserved."
-            VALUE "OriginalFilename", "electron.exe"
-            VALUE "ProductName", "Electron"
+            VALUE "InternalName", "CocosCreator.exe"
+            VALUE "LegalCopyright", "Copyright (C) 2018 Chukong Technologies, Inc. All rights reserved."
+            VALUE "OriginalFilename", "CocosCreator.exe"
+            VALUE "ProductName", "CocosCreator"
             VALUE "ProductVersion", "5.0.0"
             VALUE "SquirrelAwareVersion", "1"
         END

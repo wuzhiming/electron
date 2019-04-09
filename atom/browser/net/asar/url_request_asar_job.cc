@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "atom/common/asar/archive.h"
+#include "atom/common/asar/asar_crypto.h"
 #include "atom/common/asar/asar_util.h"
 #include "atom/common/atom_constants.h"
 #include "base/bind.h"
@@ -37,9 +38,13 @@ URLRequestAsarJob::FileMetaInfo::FileMetaInfo() = default;
 
 URLRequestAsarJob::URLRequestAsarJob(net::URLRequest* request,
                                      net::NetworkDelegate* network_delegate)
-    : net::URLRequestJob(request, network_delegate), weak_ptr_factory_(this) {}
+    : net::URLRequestJob(request, network_delegate),
+      weak_ptr_factory_(this),
+      decipher_(nullptr) {}
 
-URLRequestAsarJob::~URLRequestAsarJob() {}
+URLRequestAsarJob::~URLRequestAsarJob() {
+  delete decipher_;
+}
 
 void URLRequestAsarJob::Initialize(
     const scoped_refptr<base::TaskRunner> file_task_runner,
@@ -79,6 +84,9 @@ void URLRequestAsarJob::InitializeAsarJob(
   archive_ = archive;
   file_path_ = file_path;
   file_info_ = file_info;
+
+  if (base::LowerCaseEqualsASCII(file_path_.Extension(), ".js"))
+    decipher_ = CipherBase::CreateDecipher();
 }
 
 void URLRequestAsarJob::InitializeFileJob(
@@ -136,6 +144,14 @@ int URLRequestAsarJob::ReadRawData(net::IOBuffer* dest, int dest_size) {
   if (rv >= 0) {
     remaining_bytes_ -= rv;
     DCHECK_GE(remaining_bytes_, 0);
+
+    // decrypt js files
+    if (type_ == TYPE_ASAR &&
+        base::LowerCaseEqualsASCII(file_path_.Extension(), ".js") && rv > 0) {
+      DecryptData(dest, rv);
+    }
+
+    return true;
   }
 
   return rv;
@@ -327,11 +343,25 @@ void URLRequestAsarJob::DidRead(scoped_refptr<net::IOBuffer> buf, int result) {
   if (result >= 0) {
     remaining_bytes_ -= result;
     DCHECK_GE(remaining_bytes_, 0);
+
+    // decrypt js files
+    if (type_ == TYPE_ASAR &&
+        base::LowerCaseEqualsASCII(file_path_.Extension(), ".js") &&
+        result > 0) {
+      DecryptData(buf.get(), result);
+    }
   }
 
   buf = nullptr;
 
   ReadRawDataComplete(result);
+}
+
+void URLRequestAsarJob::DecryptData(net::IOBuffer* buf, int size) {
+  if (remaining_bytes_ == 0)
+    decipher_->Update(buf->data(), size, true);
+  else
+    decipher_->Update(buf->data(), size, false);
 }
 
 }  // namespace asar

@@ -550,6 +550,8 @@ filenames = {
     "atom/common/asar/archive.h",
     "atom/common/asar/asar_util.cc",
     "atom/common/asar/asar_util.h",
+    'atom/common/asar/asar_crypto.h',
+    'atom/common/asar/asar_crypto.cc',
     "atom/common/asar/scoped_temporary_file.cc",
     "atom/common/asar/scoped_temporary_file.h",
     "atom/common/application_info_linux.cc",

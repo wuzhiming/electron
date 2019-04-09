@@ -6,7 +6,9 @@
 
 #include <vector>
 
+#include "atom/common/asar/asar_crypto.h"
 #include "base/files/file_util.h"
+#include "base/strings/string_util.h"
 #include "base/threading/thread_restrictions.h"
 
 namespace asar {
@@ -66,6 +68,10 @@ bool ScopedTemporaryFile::InitFromFile(base::File* src,
   base::File dest(path_, base::File::FLAG_OPEN | base::File::FLAG_WRITE);
   if (!dest.IsValid())
     return false;
+
+  // decrypt js data
+  if (base::LowerCaseEqualsASCII(ext, ".js"))
+    CipherBase::DecryptData(buf.data(), len);
 
   return dest.WriteAtCurrentPos(buf.data(), buf.size()) ==
          static_cast<int>(size);

@@ -6,7 +6,8 @@
   "devDependencies": {
     "@octokit/rest": "^16.3.2",
     "aliasify": "^2.1.0",
-    "asar": "^0.11.0",
+    "creator-asar": "cocos-creator/creator-asar",
+    "del": "2.1.0",
     "browserify": "^13.1.0",
     "check-for-leaks": "^1.0.2",
     "clang-format": "^1.2.3",
@@ -34,7 +35,12 @@
     "serve": "^6.5.8",
     "standard-markdown": "^5.0.0",
     "sumchecker": "^2.0.2",
-    "temp": "^0.8.3"
+    "temp": "^0.8.3",
+    "fire-fs": "0.2.1",
+    "ftp": "0.3.10",
+    "gulp": "3.9.0",
+    "gulp-sequence": "0.4.1",
+    "hasha": "^2.2.0"
   },
   "private": true,
   "scripts": {
