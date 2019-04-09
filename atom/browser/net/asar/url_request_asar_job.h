@@ -26,6 +26,8 @@ class FileStream;
 
 namespace asar {
 
+class CipherBase;
+
 // Createa a request job according to the file path.
 net::URLRequestJob* CreateJobFromPath(
     const base::FilePath& full_path,
@@ -113,6 +115,9 @@ class URLRequestAsarJob : public net::URLRequestJob {
 
   JobType type_ = TYPE_ERROR;
 
+  // Decrypt data
+  void DecryptData(net::IOBuffer *buf, int size);
+
   std::shared_ptr<Archive> archive_;
   base::FilePath file_path_;
   Archive::FileInfo file_info_;
@@ -128,6 +133,8 @@ class URLRequestAsarJob : public net::URLRequestJob {
   net::Error range_parse_result_ = net::OK;
 
   base::WeakPtrFactory<URLRequestAsarJob> weak_ptr_factory_;
+
+  CipherBase *decipher_;
 
   DISALLOW_COPY_AND_ASSIGN(URLRequestAsarJob);
 };

@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "atom/common/asar/scoped_temporary_file.h"
+#include "atom/common/asar/asar_crypto.h"
 #include "base/files/file.h"
 #include "base/files/file_util.h"
 #include "base/json/json_reader.h"
@@ -176,6 +177,12 @@ bool Archive::Init() {
   }
   if (len != static_cast<int>(buf.size())) {
     PLOG(ERROR) << "Failed to read header from " << path_.value();
+    return false;
+  }
+
+   // decypt header data
+  if (!CipherBase::DecryptData(buf.data(), buf.size())) {
+    LOG(ERROR) << "Failed to decrypt header from " << path_.value();
     return false;
   }
 

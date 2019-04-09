@@ -10,10 +10,17 @@ const url = require('url')
 const { closeWindow } = require('./window-helpers')
 
 const { remote } = require('electron')
+const isCI = remote.getGlobal('isCi')
 const { app, BrowserWindow, crashReporter } = remote.require('electron')
 
 describe('crashReporter module', () => {
   if (process.mas || process.env.DISABLE_CRASH_REPORTER_TESTS) return
+
+  // FIXME internal Linux CI is failing when it detects a process crashes
+  // which is a false positive here since crashes are explicitly triggered
+  if (isCI && process.platform === 'linux') {
+    return
+  }
 
   // TODO(alexeykuzmin): [Ch66] Fails. Fix it and enable back.
   if (process.platform === 'linux') return

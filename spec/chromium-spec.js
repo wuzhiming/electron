@@ -1253,6 +1253,19 @@ describe('chromium feature', () => {
       w.webContents.loadURL(this.pdfSource)
     })
 
+    it('should download a pdf when plugins are disabled', function (done) {
+      createBrowserWindow({plugins: false})
+      ipcRenderer.sendSync('set-download-option', false, false)
+      ipcRenderer.once('download-done', function (event, state, url, mimeType, receivedBytes, totalBytes, disposition, filename) {
+        assert.equal(state, 'completed')
+        assert.equal(filename, 'cat.pdf')
+        assert.equal(mimeType, 'application/pdf')
+        fs.unlinkSync(path.join(fixtures, 'mock.pdf'))
+        done()
+      })
+      w.webContents.loadURL(pdfSource)
+    })
+
     it('should not open when pdf is requested as sub resource', (done) => {
       fetch(this.pdfSource).then((res) => {
         assert.strictEqual(res.status, 200)
