@@ -38,9 +38,7 @@ URLRequestAsarJob::FileMetaInfo::FileMetaInfo() = default;
 
 URLRequestAsarJob::URLRequestAsarJob(net::URLRequest* request,
                                      net::NetworkDelegate* network_delegate)
-    : net::URLRequestJob(request, network_delegate),
-      weak_ptr_factory_(this),
-      decipher_(nullptr) {}
+    : net::URLRequestJob(request, network_delegate), decipher_(nullptr), weak_ptr_factory_(this) {}
 
 URLRequestAsarJob::~URLRequestAsarJob() {
   delete decipher_;

@@ -132,9 +132,10 @@ class URLRequestAsarJob : public net::URLRequestJob {
 
   net::Error range_parse_result_ = net::OK;
 
-  base::WeakPtrFactory<URLRequestAsarJob> weak_ptr_factory_;
 
   CipherBase* decipher_;
+
+  base::WeakPtrFactory<URLRequestAsarJob> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(URLRequestAsarJob);
 };
