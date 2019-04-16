@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: deepak1556 <hop2deep@gmail.com>
 Date: Tue, 27 Nov 2018 04:32:18 +0530
-Subject: [Mac] Fix form control rendering on 10.14 Mojave.
+Subject: Fix form control rendering on 10.14 Mojave.
 
 Backports https://crrev.com/c/1106298/ and https://crrev.com/c/1130163/
 with changes required for v1 sandbox on macOS.

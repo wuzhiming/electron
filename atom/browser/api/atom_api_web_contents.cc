@@ -1184,6 +1184,9 @@ void WebContents::LoadURL(const GURL& url, const mate::Dictionary& options) {
   params.transition_type = ui::PAGE_TRANSITION_TYPED;
   params.should_clear_history_list = true;
   params.override_user_agent = content::NavigationController::UA_OVERRIDE_TRUE;
+  // Discord non-committed entries to ensure that we don't re-use a pending
+  // entry
+  web_contents()->GetController().DiscardNonCommittedEntries();
   web_contents()->GetController().LoadURLWithParams(params);
 
   // Set the background color of RenderWidgetHostView.
@@ -1455,7 +1458,7 @@ bool WebContents::IsDOMReady() const {
 
 #if BUILDFLAG(ENABLE_PRINTING)
 void WebContents::Print(mate::Arguments* args) {
-  bool silent, print_background = false;
+  bool silent = false, print_background = false;
   base::string16 device_name;
   mate::Dictionary options = mate::Dictionary::CreateEmpty(args->isolate());
   base::DictionaryValue settings;
