@@ -8,6 +8,4 @@ is_component_build = true
 # The initialization of the decoder depends on whether ffmpeg has
 # been built with H.264 support.
 rtc_use_h264 = proprietary_codecs
-SCCACHE_BUCKET="electronjs-sccache"
-SCCACHE_TWO_TIER=true
-cc_wrapper="/Volumes/creator/electron-gn/src/electron/external_binaries/sccache"
+debug_devtools = true
