@@ -101,6 +101,17 @@ Returns:
 
 Emitted when the document in the given frame is loaded.
 
+#### Event: 'page-title-updated'
+
+Returns:
+
+* `event` Event
+* `title` String
+* `explicitSet` Boolean
+
+Fired when page title is set during navigation. `explicitSet` is false when
+title is synthesized from file url.
+
 #### Event: 'page-favicon-updated'
 
 Returns:
@@ -138,11 +149,16 @@ new [`BrowserWindow`](browser-window.md). If you call `event.preventDefault()` a
 instance, failing to do so may result in unexpected behavior. For example:
 
 ```javascript
-myBrowserWindow.webContents.on('new-window', (event, url) => {
+myBrowserWindow.webContents.on('new-window', (event, url, frameName, disposition, options) => {
   event.preventDefault()
-  const win = new BrowserWindow({ show: false })
+  const win = new BrowserWindow({
+    webContents: options.webContents, // use existing webContents if provided
+    show: false
+  })
   win.once('ready-to-show', () => win.show())
-  win.loadURL(url)
+  if (!options.webContents) {
+    win.loadURL(url) // existing webContents will be navigated automatically
+  }
   event.newGuest = win
 })
 ```

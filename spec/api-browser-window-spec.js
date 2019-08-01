@@ -11,6 +11,7 @@ const http = require('http')
 const { closeWindow } = require('./window-helpers')
 const { emittedOnce } = require('./events-helpers')
 const { resolveGetters } = require('./assert-helpers')
+const { createNetworkSandbox } = require('./network-helper')
 const { ipcRenderer, remote } = require('electron')
 const { app, ipcMain, BrowserWindow, BrowserView, protocol, session, screen, webContents } = remote
 
@@ -288,6 +289,26 @@ describe('BrowserWindow module', () => {
       })
       const data = Buffer.alloc(2 * 1024 * 1024).toString('base64')
       w.loadURL(`data:image/png;base64,${data}`)
+    })
+
+    it('should return a promise', () => {
+      const p = w.loadURL('about:blank')
+      expect(p).to.have.property('then')
+    })
+
+    it('should return a promise that resolves', async () => {
+      expect(w.loadURL('about:blank')).to.eventually.be.fulfilled()
+    })
+
+    it('should return a promise that rejects on a load failure', async () => {
+      const data = Buffer.alloc(2 * 1024 * 1024).toString('base64')
+      const p = w.loadURL(`data:image/png;base64,${data}`)
+      await expect(p).to.eventually.be.rejected()
+    })
+
+    it('should return a promise that resolves even if pushState occurs during navigation', async () => {
+      const p = w.loadURL('data:text/html,<script>window.history.pushState({}, "/foo")</script>')
+      await expect(p).to.eventually.be.fulfilled()
     })
 
     describe('POST navigations', () => {
@@ -1951,15 +1972,27 @@ describe('BrowserWindow module', () => {
     })
 
     describe('nativeWindowOpen option', () => {
-      beforeEach(() => {
+      const networkSandbox = createNetworkSandbox(protocol)
+
+      beforeEach(async () => {
+        // used to create cross-origin navigation situations
+        await networkSandbox.serveFileFromProtocol('foo', path.join(fixtures, 'api', 'window-open-location-change.html'))
+        await networkSandbox.serveFileFromProtocol('bar', path.join(fixtures, 'api', 'window-open-location-final.html'))
+
         w.destroy()
         w = new BrowserWindow({
           show: false,
           webPreferences: {
             nodeIntegration: true,
-            nativeWindowOpen: true
+            nativeWindowOpen: true,
+            // tests relies on preloads in opened windows
+            nodeIntegrationInSubFrames: true
           }
         })
+      })
+
+      afterEach(async () => {
+        await networkSandbox.reset()
       })
 
       it('opens window of about:blank with cross-scripting enabled', (done) => {
@@ -2001,12 +2034,35 @@ describe('BrowserWindow module', () => {
         })
         w.loadFile(path.join(fixtures, 'api', 'native-window-open-native-addon.html'))
       })
+      it('<webview> works in a scriptable popup', (done) => {
+        const preload = path.join(fixtures, 'api', 'new-window-webview-preload.js')
+
+        w.destroy()
+        w = new BrowserWindow({
+          show: false,
+          webPreferences: {
+            nodeIntegrationInSubFrames: true,
+            nativeWindowOpen: true,
+            webviewTag: true,
+            preload
+          }
+        })
+
+        ipcRenderer.send('set-options-on-next-new-window', w.webContents.id, 'show', false)
+
+        ipcMain.once('webview-loaded', () => {
+          done()
+        })
+        w.loadFile(path.join(fixtures, 'api', 'new-window-webview.html'))
+      })
       it('should inherit the nativeWindowOpen setting in opened windows', (done) => {
         w.destroy()
         w = new BrowserWindow({
           show: false,
           webPreferences: {
-            nativeWindowOpen: true
+            nativeWindowOpen: true,
+            // test relies on preloads in opened window
+            nodeIntegrationInSubFrames: true
           }
         })
 
@@ -2023,7 +2079,9 @@ describe('BrowserWindow module', () => {
         w = new BrowserWindow({
           show: false,
           webPreferences: {
-            nativeWindowOpen: true
+            nativeWindowOpen: true,
+            // test relies on preloads in opened window
+            nodeIntegrationInSubFrames: true
           }
         })
 
@@ -2037,14 +2095,13 @@ describe('BrowserWindow module', () => {
         w.loadFile(path.join(fixtures, 'api', 'new-window.html'))
       })
       it('retains the original web preferences when window.location is changed to a new origin', async () => {
-        await serveFileFromProtocol('foo', path.join(fixtures, 'api', 'window-open-location-change.html'))
-        await serveFileFromProtocol('bar', path.join(fixtures, 'api', 'window-open-location-final.html'))
-
         w.destroy()
         w = new BrowserWindow({
           show: true,
           webPreferences: {
-            nativeWindowOpen: true
+            nativeWindowOpen: true,
+            // test relies on preloads in opened window
+            nodeIntegrationInSubFrames: true
           }
         })
 
@@ -2057,7 +2114,33 @@ describe('BrowserWindow module', () => {
         expect(typeofProcess).to.eql('undefined')
       })
 
+      it('window.opener is not null when window.location is changed to a new origin', async () => {
+        w.destroy()
+        w = new BrowserWindow({
+          show: true,
+          webPreferences: {
+            nativeWindowOpen: true,
+            // test relies on preloads in opened window
+            nodeIntegrationInSubFrames: true
+          }
+        })
+
+        ipcRenderer.send('set-web-preferences-on-next-new-window', w.webContents.id, 'preload', path.join(fixtures, 'api', 'window-open-preload.js'))
+        const p = emittedOnce(ipcMain, 'answer')
+        w.loadFile(path.join(fixtures, 'api', 'window-open-location-open.html'))
+        const [, , , windowOpenerIsNull] = await p
+        expect(windowOpenerIsNull).to.be.false('window.opener is null')
+      })
+
       it('should have nodeIntegration disabled in child windows', async () => {
+        w.destroy()
+        w = new BrowserWindow({
+          show: false,
+          webPreferences: {
+            nodeIntegration: true,
+            nativeWindowOpen: true
+          }
+        })
         const p = emittedOnce(ipcMain, 'answer')
         w.loadFile(path.join(fixtures, 'api', 'native-window-open-argv.html'))
         const [, typeofProcess] = await p
@@ -3740,23 +3823,4 @@ const isScaleFactorRounding = () => {
   if (Math.round(scaleFactor) !== scaleFactor) return true
   // Return true if scale factor is odd number above 2
   return scaleFactor > 2 && scaleFactor % 2 === 1
-}
-
-function serveFileFromProtocol (protocolName, filePath) {
-  return new Promise((resolve, reject) => {
-    protocol.registerBufferProtocol(protocolName, (request, callback) => {
-      // Disabled due to false positive in StandardJS
-      // eslint-disable-next-line standard/no-callback-literal
-      callback({
-        mimeType: 'text/html',
-        data: fs.readFileSync(filePath)
-      })
-    }, (error) => {
-      if (error != null) {
-        reject(error)
-      } else {
-        resolve()
-      }
-    })
-  })
 }

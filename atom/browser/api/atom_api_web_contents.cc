@@ -287,7 +287,9 @@ struct WebContents::FrameDispatchHelper {
 
 WebContents::WebContents(v8::Isolate* isolate,
                          content::WebContents* web_contents)
-    : content::WebContentsObserver(web_contents), type_(REMOTE) {
+    : content::WebContentsObserver(web_contents),
+      type_(REMOTE),
+      weak_factory_(this) {
   web_contents->SetUserAgentOverride(GetBrowserContext()->GetUserAgent(),
                                      false);
   Init(isolate);
@@ -298,7 +300,9 @@ WebContents::WebContents(v8::Isolate* isolate,
 WebContents::WebContents(v8::Isolate* isolate,
                          std::unique_ptr<content::WebContents> web_contents,
                          Type type)
-    : content::WebContentsObserver(web_contents.get()), type_(type) {
+    : content::WebContentsObserver(web_contents.get()),
+      type_(type),
+      weak_factory_(this) {
   DCHECK(type != REMOTE) << "Can't take ownership of a remote WebContents";
   auto session = Session::CreateFrom(isolate, GetBrowserContext());
   session_.Reset(isolate, session.ToV8());
@@ -306,8 +310,8 @@ WebContents::WebContents(v8::Isolate* isolate,
                             mate::Dictionary::CreateEmpty(isolate));
 }
 
-WebContents::WebContents(v8::Isolate* isolate,
-                         const mate::Dictionary& options) {
+WebContents::WebContents(v8::Isolate* isolate, const mate::Dictionary& options)
+    : weak_factory_(this) {
   // Read options.
   options.Get("backgroundThrottling", &background_throttling_);
 
@@ -835,6 +839,10 @@ void WebContents::DidChangeThemeColor(SkColor theme_color) {
   } else {
     Emit("did-change-theme-color", nullptr);
   }
+}
+
+void WebContents::DidAcquireFullscreen(content::RenderFrameHost* rfh) {
+  set_fullscreen_frame(rfh);
 }
 
 void WebContents::DocumentLoadedInFrame(
@@ -1748,6 +1756,19 @@ void WebContents::SendInputEvent(v8::Isolate* isolate,
             mouse_wheel_event);
 #endif
       } else {
+        // Chromium expects phase info in wheel events (and applies a
+        // DCHECK to verify it). See: https://crbug.com/756524.
+        mouse_wheel_event.phase = blink::WebMouseWheelEvent::kPhaseBegan;
+        mouse_wheel_event.dispatch_type = blink::WebInputEvent::kBlocking;
+        rwh->ForwardWheelEvent(mouse_wheel_event);
+
+        // Send a synthetic wheel event with phaseEnded to finish scrolling.
+        mouse_wheel_event.has_synthetic_phase = true;
+        mouse_wheel_event.delta_x = 0;
+        mouse_wheel_event.delta_y = 0;
+        mouse_wheel_event.phase = blink::WebMouseWheelEvent::kPhaseEnded;
+        mouse_wheel_event.dispatch_type =
+            blink::WebInputEvent::kEventNonBlocking;
         rwh->ForwardWheelEvent(mouse_wheel_event);
       }
       return;

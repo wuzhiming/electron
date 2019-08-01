@@ -1,4 +1,4 @@
-# API Contract
+# Breaking Changes
 
 Breaking changes will be documented here, and deprecation warnings added to JS code where possible, at least [one major version](../tutorial/electron-versioning.md#semver) before the change is made.
 
@@ -62,7 +62,17 @@ The following `webPreferences` option default values are deprecated in favor of 
 | `nodeIntegration` | `true` | `false` |
 | `webviewTag` | `nodeIntegration` if set else `true` | `false` |
 
-## `nativeWindowOpen`
+E.g. Re-enabling the webviewTag
+
+```js
+const w = new BrowserWindow({
+  webPreferences: {
+    webviewTag: true
+  }
+})
+```
+
+### `nativeWindowOpen`
 
 Child windows opened with the `nativeWindowOpen` option will always have Node.js integration disabled.
 
