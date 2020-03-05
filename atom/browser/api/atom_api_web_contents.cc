@@ -35,7 +35,6 @@
 #include "atom/common/color_util.h"
 #include "atom/common/mouse_util.h"
 #include "atom/common/native_mate_converters/blink_converter.h"
-#include "atom/common/native_mate_converters/callback.h"
 #include "atom/common/native_mate_converters/content_converter.h"
 #include "atom/common/native_mate_converters/file_path_converter.h"
 #include "atom/common/native_mate_converters/gfx_converter.h"
@@ -43,6 +42,7 @@
 #include "atom/common/native_mate_converters/image_converter.h"
 #include "atom/common/native_mate_converters/net_converter.h"
 #include "atom/common/native_mate_converters/network_converter.h"
+#include "atom/common/native_mate_converters/once_callback.h"
 #include "atom/common/native_mate_converters/string16_converter.h"
 #include "atom/common/native_mate_converters/value_converter.h"
 #include "atom/common/options_switches.h"
@@ -93,6 +93,12 @@
 
 #if !defined(OS_MACOSX)
 #include "ui/aura/window.h"
+#else
+#include "ui/base/cocoa/defaults_utils.h"
+#endif
+
+#if defined(OS_LINUX)
+#include "ui/views/linux_ui/linux_ui.h"
 #endif
 
 #if defined(OS_LINUX) || defined(OS_WIN)
@@ -432,6 +438,25 @@ void WebContents::InitWithSessionAndOptions(
   prefs->use_autohinter = params->autohinter;
   prefs->use_bitmaps = params->use_bitmaps;
   prefs->subpixel_rendering = params->subpixel_rendering;
+#endif
+
+// Honor the system's cursor blink rate settings
+#if defined(OS_MACOSX)
+  base::TimeDelta interval;
+  if (ui::TextInsertionCaretBlinkPeriod(&interval))
+    prefs->caret_blink_interval = interval;
+#elif defined(OS_LINUX)
+  views::LinuxUI* linux_ui = views::LinuxUI::instance();
+  if (linux_ui)
+    prefs->caret_blink_interval = linux_ui->GetCursorBlinkInterval();
+#elif defined(OS_WIN)
+  const auto system_msec = ::GetCaretBlinkTime();
+  if (system_msec != 0) {
+    prefs->caret_blink_interval =
+        (system_msec == INFINITE)
+            ? base::TimeDelta()
+            : base::TimeDelta::FromMilliseconds(system_msec);
+  }
 #endif
 
   // Save the preferences in C++.
@@ -1790,7 +1815,7 @@ void WebContents::BeginFrameSubscription(mate::Arguments* args) {
   }
 
   frame_subscriber_.reset(
-      new FrameSubscriber(isolate(), web_contents(), callback, only_dirty));
+      new FrameSubscriber(web_contents(), callback, only_dirty));
 }
 
 void WebContents::EndFrameSubscription() {

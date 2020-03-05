@@ -45,6 +45,10 @@ allow_webview_file_url.patch
 enable_osr_components.patch
 ignore_rc_check.patch
 enable_widevine.patch
+mas_disable_remote_layer.patch
+mas_disable_remote_accessibility.patch
+mas_disable_custom_window_frame.patch
+mas_disable_spi_file_type_mappings.patch
 chrome_key_systems.patch
 allow_nested_error_trackers.patch
 blink_initialization_order.patch
@@ -79,3 +83,5 @@ unsandboxed_ppapi_processes_skip_zygote.patch
 autofill_size_calculation.patch
 disable_detach_webview_frame.patch
 chore_add_debounce_on_the_updatewebcontentsvisibility_method_to.patch
+fix_use_weakptr_to_detect_deletion.patch
+fix_add_more_checks_in_mojocdmservice.patch

@@ -874,6 +874,16 @@ describe('BrowserWindow module', () => {
         w.setAlwaysOnTop(true, '', 2147483632)
       })
     })
+
+    it('causes the right value to be emitted on `always-on-top-changed`', (done) => {
+      w.on('always-on-top-changed', (e, alwaysOnTop) => {
+        assert.strictEqual(alwaysOnTop, true)
+        done()
+      })
+
+      assert.strictEqual(w.isAlwaysOnTop(), false)
+      w.setAlwaysOnTop(true)
+    })
   })
 
   describe('BrowserWindow.alwaysOnTop() resets level on minimize', () => {
@@ -1162,23 +1172,51 @@ describe('BrowserWindow module', () => {
   })
 
   describe('BrowserWindow.setOpacity(opacity)', () => {
-    it('make window with initial opacity', () => {
-      w.destroy()
-      w = new BrowserWindow({
-        show: false,
-        width: 400,
-        height: 400,
-        opacity: 0.5
+    describe('Windows and Mac', () => {
+      before(function () {
+        if (process.platform === 'linux') {
+          this.skip()
+        }
       })
-      assert.strictEqual(w.getOpacity(), 0.5)
-    })
-    it('allows setting the opacity', () => {
-      assert.doesNotThrow(() => {
-        w.setOpacity(0.0)
-        assert.strictEqual(w.getOpacity(), 0.0)
-        w.setOpacity(0.5)
+
+      it('makes a window with initial opacity', () => {
+        w.destroy()
+        w = new BrowserWindow({ show: false, opacity: 0.5 })
         assert.strictEqual(w.getOpacity(), 0.5)
-        w.setOpacity(1.0)
+      })
+
+      it('allows setting the opacity', () => {
+        assert.doesNotThrow(() => {
+          w.setOpacity(0.0)
+          assert.strictEqual(w.getOpacity(), 0.0)
+          w.setOpacity(0.5)
+          assert.strictEqual(w.getOpacity(), 0.5)
+          w.setOpacity(1.0)
+          assert.strictEqual(w.getOpacity(), 1.0)
+        })
+      })
+
+      it('clamps opacity to [0.0...1.0]', () => {
+        w.setOpacity(100)
+        assert.strictEqual(w.getOpacity(), 1.0)
+        w.setOpacity(-100)
+        assert.strictEqual(w.getOpacity(), 0.0)
+      })
+    })
+
+    describe('Linux', () => {
+      before(function () {
+        if (process.platform !== 'linux') {
+          this.skip()
+        }
+      })
+
+      it('sets 1 regardless of parameter', () => {
+        w.destroy()
+        w = new BrowserWindow({ show: false, opacity: 0.5 })
+        w.setOpacity(0)
+        assert.strictEqual(w.getOpacity(), 1.0)
+        w.setOpacity(0.5)
         assert.strictEqual(w.getOpacity(), 1.0)
       })
     })
@@ -2552,13 +2590,6 @@ describe('BrowserWindow module', () => {
   })
 
   describe('beginFrameSubscription method', () => {
-    before(function () {
-      // FIXME These specs crash on Linux when run in a docker container
-      if (isCI && process.platform === 'linux') {
-        this.skip()
-      }
-    })
-
     it('does not crash when callback returns nothing', (done) => {
       w.loadFile(path.join(fixtures, 'api', 'frame-subscriber.html'))
       w.webContents.on('dom-ready', () => {
@@ -2588,13 +2619,14 @@ describe('BrowserWindow module', () => {
         })
       })
     })
+
     it('subscribes to frame updates (only dirty rectangle)', (done) => {
       let called = false
       let gotInitialFullSizeFrame = false
       const [contentWidth, contentHeight] = w.getContentSize()
       w.webContents.on('did-finish-load', () => {
-        w.webContents.beginFrameSubscription(true, (data, rect) => {
-          if (data.length === 0) {
+        w.webContents.beginFrameSubscription(true, (image, rect) => {
+          if (image.isEmpty()) {
             // Chromium sometimes sends a 0x0 frame at the beginning of the
             // page load.
             return
@@ -2615,13 +2647,14 @@ describe('BrowserWindow module', () => {
           // assert(rect.width < contentWidth || rect.height < contentHeight)
           called = true
 
-          expect(data.length).to.equal(rect.width * rect.height * 4)
+          expect(image.getBitmap().length).to.equal(rect.width * rect.height * 4)
           w.webContents.endFrameSubscription()
           done()
         })
       })
       w.loadFile(path.join(fixtures, 'api', 'frame-subscriber.html'))
     })
+
     it('throws error when subscriber is not well defined', (done) => {
       w.loadFile(path.join(fixtures, 'api', 'frame-subscriber.html'))
       try {
@@ -2975,6 +3008,17 @@ describe('BrowserWindow module', () => {
         w.setFullScreen(true)
       })
 
+      it('does not crash when exiting simpleFullScreen', (done) => {
+        w.destroy()
+        w = new BrowserWindow()
+        w.setSimpleFullScreen(true)
+
+        setTimeout(() => {
+          w.setFullScreen(!w.isFullScreen())
+          done()
+        }, 1000)
+      })
+
       it('should not be changed by setKiosk method', (done) => {
         w.destroy()
         w = new BrowserWindow()
@@ -3010,23 +3054,29 @@ describe('BrowserWindow module', () => {
     })
 
     describe('hasShadow state', () => {
-      // On Window there is no shadow by default and it can not be changed
-      // dynamically.
+      beforeEach(() => { w.destroy() })
+
+      it('returns a boolean on all platforms', () => {
+        w = new BrowserWindow({ show: false })
+        const hasShadow = w.hasShadow()
+        assert.strictEqual(typeof hasShadow, 'boolean')
+      })
+
       it('can be changed with hasShadow option', () => {
-        w.destroy()
         const hasShadow = process.platform !== 'darwin'
-        w = new BrowserWindow({ show: false, hasShadow: hasShadow })
+        w = new BrowserWindow({ show: false, hasShadow })
         assert.strictEqual(w.hasShadow(), hasShadow)
       })
 
       it('can be changed with setHasShadow method', () => {
-        if (process.platform !== 'darwin') return
+        w = new BrowserWindow({ show: false })
 
-        assert.strictEqual(w.hasShadow(), true)
         w.setHasShadow(false)
         assert.strictEqual(w.hasShadow(), false)
         w.setHasShadow(true)
         assert.strictEqual(w.hasShadow(), true)
+        w.setHasShadow(false)
+        assert.strictEqual(w.hasShadow(), false)
       })
     })
   })

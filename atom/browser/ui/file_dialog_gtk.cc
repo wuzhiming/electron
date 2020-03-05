@@ -3,8 +3,7 @@
 // found in the LICENSE file.
 
 #include "atom/browser/ui/file_dialog.h"
-
-#include <glib/gi18n.h>  // _() macro
+#include "atom/browser/ui/util_gtk.h"
 
 #include "atom/browser/native_window_views.h"
 #include "atom/browser/unresponsive_suppressor.h"
@@ -43,18 +42,18 @@ class FileChooserDialog {
   FileChooserDialog(GtkFileChooserAction action, const DialogSettings& settings)
       : parent_(static_cast<atom::NativeWindowViews*>(settings.parent_window)),
         filters_(settings.filters) {
-    const char* confirm_text = _("_OK");
+    const char* confirm_text = util_gtk::kOkLabel;
 
     if (!settings.button_label.empty())
       confirm_text = settings.button_label.c_str();
     else if (action == GTK_FILE_CHOOSER_ACTION_SAVE)
-      confirm_text = _("_Save");
+      confirm_text = util_gtk::kSaveLabel;
     else if (action == GTK_FILE_CHOOSER_ACTION_OPEN)
-      confirm_text = _("_Open");
+      confirm_text = util_gtk::kOpenLabel;
 
     dialog_ = gtk_file_chooser_dialog_new(
-        settings.title.c_str(), NULL, action, _("_Cancel"), GTK_RESPONSE_CANCEL,
-        confirm_text, GTK_RESPONSE_ACCEPT, NULL);
+        settings.title.c_str(), NULL, action, util_gtk::kCancelLabel,
+        GTK_RESPONSE_CANCEL, confirm_text, GTK_RESPONSE_ACCEPT, NULL);
     if (parent_) {
       parent_->SetEnabled(false);
       libgtkui::SetGtkTransientForAura(dialog_, parent_->GetNativeWindow());

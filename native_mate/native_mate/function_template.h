@@ -5,6 +5,8 @@
 #ifndef NATIVE_MATE_FUNCTION_TEMPLATE_H_
 #define NATIVE_MATE_FUNCTION_TEMPLATE_H_
 
+#include <utility>
+
 #include "base/callback.h"
 #include "base/logging.h"
 #include "native_mate/arguments.h"
@@ -36,19 +38,18 @@ struct Destroyable {
   }
 };
 
-template<typename T>
+template <typename T>
 struct CallbackParamTraits {
   typedef T LocalType;
 };
-template<typename T>
+template <typename T>
 struct CallbackParamTraits<const T&> {
   typedef T LocalType;
 };
-template<typename T>
+template <typename T>
 struct CallbackParamTraits<const T*> {
   typedef T* LocalType;
 };
-
 
 // CallbackHolder and CallbackHolderBase are used to pass a base::Callback from
 // CreateFunctionTemplate through v8 (via v8::FunctionTemplate) to
@@ -75,7 +76,7 @@ class CallbackHolderBase {
   DISALLOW_COPY_AND_ASSIGN(CallbackHolderBase);
 };
 
-template<typename Sig>
+template <typename Sig>
 class CallbackHolder : public CallbackHolderBase {
  public:
   CallbackHolder(v8::Isolate* isolate,
@@ -84,14 +85,17 @@ class CallbackHolder : public CallbackHolderBase {
       : CallbackHolderBase(isolate), callback(callback), flags(flags) {}
   base::Callback<Sig> callback;
   int flags;
+
  private:
   virtual ~CallbackHolder() {}
 
   DISALLOW_COPY_AND_ASSIGN(CallbackHolder);
 };
 
-template<typename T>
-bool GetNextArgument(Arguments* args, int create_flags, bool is_first,
+template <typename T>
+bool GetNextArgument(Arguments* args,
+                     int create_flags,
+                     bool is_first,
                      T* result) {
   if (is_first && (create_flags & HolderIsFirstArgument) != 0) {
     return args->GetHolder(result);
@@ -102,20 +106,26 @@ bool GetNextArgument(Arguments* args, int create_flags, bool is_first,
 
 // For advanced use cases, we allow callers to request the unparsed Arguments
 // object and poke around in it directly.
-inline bool GetNextArgument(Arguments* args, int create_flags, bool is_first,
+inline bool GetNextArgument(Arguments* args,
+                            int create_flags,
+                            bool is_first,
                             Arguments* result) {
   *result = *args;
   return true;
 }
-inline bool GetNextArgument(Arguments* args, int create_flags, bool is_first,
+inline bool GetNextArgument(Arguments* args,
+                            int create_flags,
+                            bool is_first,
                             Arguments** result) {
   *result = args;
   return true;
 }
 
 // It's common for clients to just need the isolate, so we make that easy.
-inline bool GetNextArgument(Arguments* args, int create_flags,
-                            bool is_first, v8::Isolate** result) {
+inline bool GetNextArgument(Arguments* args,
+                            int create_flags,
+                            bool is_first,
+                            v8::Isolate** result) {
   *result = args->isolate();
   return true;
 }
@@ -145,10 +155,8 @@ struct ArgumentHolder {
   ArgLocalType value;
   bool ok;
 
-  ArgumentHolder(Arguments* args, int create_flags)
-      : ok(false) {
-    if (index == 0 &&
-        (create_flags & HolderIsFirstArgument) &&
+  ArgumentHolder(Arguments* args, int create_flags) : ok(false) {
+    if (index == 0 && (create_flags & HolderIsFirstArgument) &&
         Destroyable::IsDestroyed(args)) {
       args->ThrowError("Object has been destroyed");
       return;
@@ -185,24 +193,23 @@ class Invoker<IndicesHolder<indices...>, ArgTypes...>
     (void)create_flags;
   }
 
-  bool IsOK() {
-    return And(ArgumentHolder<indices, ArgTypes>::ok...);
-  }
+  bool IsOK() { return And(ArgumentHolder<indices, ArgTypes>::ok...); }
 
   template <typename ReturnType>
   void DispatchToCallback(base::Callback<ReturnType(ArgTypes...)> callback) {
-    v8::MicrotasksScope script_scope(
-        args_->isolate(), v8::MicrotasksScope::kRunMicrotasks);
-    args_->Return(callback.Run(ArgumentHolder<indices, ArgTypes>::value...));
+    v8::MicrotasksScope script_scope(args_->isolate(),
+                                     v8::MicrotasksScope::kRunMicrotasks);
+    args_->Return(
+        callback.Run(std::move(ArgumentHolder<indices, ArgTypes>::value)...));
   }
 
   // In C++, you can declare the function foo(void), but you can't pass a void
   // expression to foo. As a result, we must specialize the case of Callbacks
   // that have the void return type.
   void DispatchToCallback(base::Callback<void(ArgTypes...)> callback) {
-    v8::MicrotasksScope script_scope(
-        args_->isolate(), v8::MicrotasksScope::kRunMicrotasks);
-    callback.Run(ArgumentHolder<indices, ArgTypes>::value...);
+    v8::MicrotasksScope script_scope(args_->isolate(),
+                                     v8::MicrotasksScope::kRunMicrotasks);
+    callback.Run(std::move(ArgumentHolder<indices, ArgTypes>::value)...);
   }
 
  private:
@@ -227,8 +234,8 @@ struct Dispatcher<ReturnType(ArgTypes...)> {
     Arguments args(info);
     v8::Local<v8::External> v8_holder;
     args.GetData(&v8_holder);
-    CallbackHolderBase* holder_base = reinterpret_cast<CallbackHolderBase*>(
-        v8_holder->Value());
+    CallbackHolderBase* holder_base =
+        reinterpret_cast<CallbackHolderBase*>(v8_holder->Value());
 
     typedef CallbackHolder<ReturnType(ArgTypes...)> HolderT;
     HolderT* holder = static_cast<HolderT*>(holder_base);
@@ -242,7 +249,6 @@ struct Dispatcher<ReturnType(ArgTypes...)> {
 
 }  // namespace internal
 
-
 // CreateFunctionTemplate creates a v8::FunctionTemplate that will create
 // JavaScript functions that execute a provided C++ function or base::Callback.
 // JavaScript arguments are automatically converted via gin::Converter, as is
@@ -252,23 +258,23 @@ struct Dispatcher<ReturnType(ArgTypes...)> {
 // internal reasons, thus it is generally a good idea to cache the template
 // returned by this function.  Otherwise, repeated method invocations from JS
 // will create substantial memory leaks. See http://crbug.com/463487.
-template<typename Sig>
+template <typename Sig>
 v8::Local<v8::FunctionTemplate> CreateFunctionTemplate(
-    v8::Isolate* isolate, const base::Callback<Sig> callback,
+    v8::Isolate* isolate,
+    const base::Callback<Sig> callback,
     int callback_flags = 0) {
   typedef internal::CallbackHolder<Sig> HolderT;
   HolderT* holder = new HolderT(isolate, callback, callback_flags);
 
   return v8::FunctionTemplate::New(
-      isolate,
-      &internal::Dispatcher<Sig>::DispatchToCallback,
-      ConvertToV8<v8::Local<v8::External> >(isolate,
-                                             holder->GetHandle(isolate)));
+      isolate, &internal::Dispatcher<Sig>::DispatchToCallback,
+      ConvertToV8<v8::Local<v8::External>>(isolate,
+                                           holder->GetHandle(isolate)));
 }
 
 // CreateFunctionHandler installs a CallAsFunction handler on the given
 // object template that forwards to a provided C++ function or base::Callback.
-template<typename Sig>
+template <typename Sig>
 void CreateFunctionHandler(v8::Isolate* isolate,
                            v8::Local<v8::ObjectTemplate> tmpl,
                            const base::Callback<Sig> callback,
@@ -276,7 +282,7 @@ void CreateFunctionHandler(v8::Isolate* isolate,
   typedef internal::CallbackHolder<Sig> HolderT;
   HolderT* holder = new HolderT(isolate, callback, callback_flags);
   tmpl->SetCallAsFunctionHandler(&internal::Dispatcher<Sig>::DispatchToCallback,
-                                 ConvertToV8<v8::Local<v8::External> >(
+                                 ConvertToV8<v8::Local<v8::External>>(
                                      isolate, holder->GetHandle(isolate)));
 }
 

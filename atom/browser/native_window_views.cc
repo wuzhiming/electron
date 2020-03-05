@@ -26,6 +26,7 @@
 #include "atom/common/draggable_region.h"
 #include "atom/common/native_mate_converters/image_converter.h"
 #include "atom/common/options_switches.h"
+#include "base/numerics/ranges.h"
 #include "base/strings/utf_string_conversions.h"
 #include "content/public/browser/browser_thread.h"
 #include "native_mate/dictionary.h"
@@ -737,10 +738,14 @@ void NativeWindowViews::SetAlwaysOnTop(bool top,
                                        const std::string& level,
                                        int relativeLevel,
                                        std::string* error) {
-  if (top != widget()->IsAlwaysOnTop())
-    NativeWindow::NotifyWindowAlwaysOnTopChanged();
+  bool level_changed = top != widget()->IsAlwaysOnTop();
 
   widget()->SetAlwaysOnTop(top);
+
+  // This must be notified at the very end or IsAlwaysOnTop
+  // will not yet have been updated to reflect the new status
+  if (level_changed)
+    NativeWindow::NotifyWindowAlwaysOnTopChanged();
 }
 
 bool NativeWindowViews::IsAlwaysOnTop() {
@@ -845,6 +850,7 @@ bool NativeWindowViews::HasShadow() {
 
 void NativeWindowViews::SetOpacity(const double opacity) {
 #if defined(OS_WIN)
+  const double boundedOpacity = base::ClampToRange(opacity, 0.0, 1.0);
   HWND hwnd = GetAcceleratedWidget();
   if (!layered_) {
     LONG ex_style = ::GetWindowLong(hwnd, GWL_EXSTYLE);
@@ -852,9 +858,11 @@ void NativeWindowViews::SetOpacity(const double opacity) {
     ::SetWindowLong(hwnd, GWL_EXSTYLE, ex_style);
     layered_ = true;
   }
-  ::SetLayeredWindowAttributes(hwnd, 0, opacity * 255, LWA_ALPHA);
+  ::SetLayeredWindowAttributes(hwnd, 0, boundedOpacity * 255, LWA_ALPHA);
+  opacity_ = boundedOpacity;
+#else
+  opacity_ = 1.0;  // setOpacity unsupported on Linux
 #endif
-  opacity_ = opacity;
 }
 
 double NativeWindowViews::GetOpacity() {

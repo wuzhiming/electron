@@ -22,6 +22,7 @@
 #include "atom/common/options_switches.h"
 #include "base/mac/mac_util.h"
 #include "base/mac/scoped_cftyperef.h"
+#include "base/numerics/ranges.h"
 #include "base/strings/sys_string_conversions.h"
 #include "content/public/browser/browser_accessibility_state.h"
 #include "native_mate/dictionary.h"
@@ -29,8 +30,59 @@
 #include "ui/gfx/skia_util.h"
 #include "ui/gl/gpu_switching_manager.h"
 #include "ui/views/background.h"
+#include "ui/views/cocoa/bridged_native_widget_host_impl.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views_bridge_mac/bridged_native_widget_impl.h"
+
+// This view would inform Chromium to resize the hosted views::View.
+//
+// The overrided methods should behave the same with BridgedContentView.
+@interface ElectronAdapatedContentView : NSView {
+ @private
+  views::BridgedNativeWidgetHostImpl* bridge_host_;
+}
+@end
+
+@implementation ElectronAdapatedContentView
+
+- (id)initWithShell:(atom::NativeWindowMac*)shell {
+  if ((self = [self init])) {
+    bridge_host_ = views::BridgedNativeWidgetHostImpl::GetFromNativeWindow(
+        shell->GetNativeWindow());
+  }
+  return self;
+}
+
+- (void)viewDidMoveToWindow {
+  // When this view is added to a window, AppKit calls setFrameSize before it is
+  // added to the window, so the behavior in setFrameSize is not triggered.
+  NSWindow* window = [self window];
+  if (window)
+    [self setFrameSize:NSZeroSize];
+}
+
+- (void)setFrameSize:(NSSize)newSize {
+  // The size passed in here does not always use
+  // -[NSWindow contentRectForFrameRect]. The following ensures that the
+  // contentView for a frameless window can extend over the titlebar of the new
+  // window containing it, since AppKit requires a titlebar to give frameless
+  // windows correct shadows and rounded corners.
+  NSWindow* window = [self window];
+  if (window && [window contentView] == self) {
+    newSize = [window contentRectForFrameRect:[window frame]].size;
+    // Ensure that the window geometry be updated on the host side before the
+    // view size is updated.
+    bridge_host_->bridge_impl()->UpdateWindowGeometry();
+  }
+
+  [super setFrameSize:newSize];
+
+  // The OnViewSizeChanged is marked private in derived class.
+  static_cast<views_bridge_mac::mojom::BridgedNativeWidgetHost*>(bridge_host_)
+      ->OnViewSizeChanged(gfx::Size(newSize.width, newSize.height));
+}
+
+@end
 
 // This view always takes the size of its superview. It is intended to be used
 // as a NSWindow's contentView.  It is needed because NSWindow's implementation
@@ -825,6 +877,7 @@ void NativeWindowMac::SetAlwaysOnTop(bool top,
                                      int relativeLevel,
                                      std::string* error) {
   int windowLevel = NSNormalWindowLevel;
+  bool level_changed = top != widget()->IsAlwaysOnTop();
   CGWindowLevel maxWindowLevel = CGWindowLevelForKey(kCGMaximumWindowLevelKey);
   CGWindowLevel minWindowLevel = CGWindowLevelForKey(kCGMinimumWindowLevelKey);
 
@@ -858,10 +911,15 @@ void NativeWindowMac::SetAlwaysOnTop(bool top,
     [[window_ standardWindowButton:NSWindowZoomButton]
         setEnabled:was_maximizable_];
   } else {
-    *error = std::string([[NSString
-        stringWithFormat:@"relativeLevel must be between %d and %d",
-                         minWindowLevel, maxWindowLevel] UTF8String]);
+    *error = std::string([
+        [NSString stringWithFormat:@"relativeLevel must be between %d and %d",
+                                   minWindowLevel, maxWindowLevel] UTF8String]);
   }
+
+  // This must be notified at the very end or IsAlwaysOnTop
+  // will not yet have been updated to reflect the new status
+  if (level_changed)
+    NativeWindow::NotifyWindowAlwaysOnTopChanged();
 }
 
 bool NativeWindowMac::IsAlwaysOnTop() {
@@ -1031,7 +1089,8 @@ bool NativeWindowMac::HasShadow() {
 }
 
 void NativeWindowMac::SetOpacity(const double opacity) {
-  [window_ setAlphaValue:opacity];
+  const double boundedOpacity = base::ClampToRange(opacity, 0.0, 1.0);
+  [window_ setAlphaValue:boundedOpacity];
 }
 
 double NativeWindowMac::GetOpacity() {
@@ -1099,7 +1158,7 @@ void NativeWindowMac::RemoveBrowserView(NativeBrowserView* view) {
   }
 
   [view->GetInspectableWebContentsView()->GetNativeView().GetNativeNSView()
-      removeFromSuperview];
+          removeFromSuperview];
   remove_browser_view(view);
 
   [CATransaction commit];
@@ -1478,10 +1537,15 @@ void NativeWindowMac::OverrideNSWindowContentView() {
   // `BridgedContentView` as content view, which does not support draggable
   // regions. In order to make draggable regions work, we have to replace the
   // content view with a simple NSView.
-  container_view_.reset([[FullSizeContentView alloc] init]);
+  if (has_frame()) {
+    container_view_.reset(
+        [[ElectronAdapatedContentView alloc] initWithShell:this]);
+  } else {
+    container_view_.reset([[FullSizeContentView alloc] init]);
+    [container_view_ setFrame:[[[window_ contentView] superview] bounds]];
+  }
   [container_view_
       setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
-  [container_view_ setFrame:[[[window_ contentView] superview] bounds]];
   [window_ setContentView:container_view_];
   AddContentViewLayers(IsMinimizable(), IsClosable());
 }

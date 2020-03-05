@@ -17,9 +17,9 @@
     <key>CFBundleIconFile</key>
     <string>electron.icns</string>
     <key>CFBundleVersion</key>
-    <string>5.0.8</string>
+    <string>5.0.13</string>
     <key>CFBundleShortVersionString</key>
-    <string>5.0.8</string>
+    <string>5.0.13</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.developer-tools</string>
     <key>LSMinimumSystemVersion</key>
@@ -32,5 +32,9 @@
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>This app needs access to the microphone</string>
+    <key>NSCameraUsageDescription</key>
+    <string>This app needs access to the camera</string>
   </dict>
 </plist>

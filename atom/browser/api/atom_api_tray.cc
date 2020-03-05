@@ -59,11 +59,7 @@ Tray::Tray(v8::Isolate* isolate,
   InitWith(isolate, wrapper);
 }
 
-Tray::~Tray() {
-  // Destroy the native tray in next tick.
-  base::ThreadTaskRunnerHandle::Get()->DeleteSoon(FROM_HERE,
-                                                  tray_icon_.release());
-}
+Tray::~Tray() = default;
 
 // static
 mate::WrappableBase* Tray::New(mate::Handle<NativeImage> image,
@@ -192,7 +188,7 @@ void Tray::DisplayBalloon(mate::Arguments* args,
 
 #if defined(OS_WIN)
   tray_icon_->DisplayBalloon(
-      icon.IsEmpty() ? NULL : icon->GetHICON(GetSystemMetrics(SM_CXSMICON)),
+      icon.IsEmpty() ? NULL : icon->GetHICON(GetSystemMetrics(SM_CXICON)),
       title, content);
 #else
   tray_icon_->DisplayBalloon(icon.IsEmpty() ? gfx::Image() : icon->image(),
