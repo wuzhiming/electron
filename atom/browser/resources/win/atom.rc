@@ -68,12 +68,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Chukong Technologies, Inc."
             VALUE "FileDescription", "CocosCreator"
-            VALUE "FileVersion", "5.0.0"
+            VALUE "FileVersion", "5.0.13"
             VALUE "InternalName", "CocosCreator.exe"
             VALUE "LegalCopyright", "Copyright (C) 2018 Chukong Technologies, Inc. All rights reserved."
             VALUE "OriginalFilename", "CocosCreator.exe"
             VALUE "ProductName", "CocosCreator"
-            VALUE "ProductVersion", "5.0.0"
+            VALUE "ProductVersion", "5.0.13"
             VALUE "SquirrelAwareVersion", "1"
         END
     END
