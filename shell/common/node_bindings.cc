@@ -74,6 +74,7 @@
   V(electron_common_notification)        \
   V(electron_common_screen)              \
   V(electron_common_shell)               \
+  V(electron_common_compile)             \
   V(electron_common_v8_util)             \
   V(electron_renderer_context_bridge)    \
   V(electron_renderer_crash_reporter)    \
