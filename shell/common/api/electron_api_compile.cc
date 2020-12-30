@@ -23,7 +23,7 @@ using namespace v8;
 const char* ENCRYPT_KEY = "YDDAD_RUOY_SOHW";
 
 // read file from path
-std::vector<uint8_t> ReadFileIntoString(const char* filename) {
+std::vector<uint8_t> ReadFile(const char* filename) {
   FILE* fp = fopen(filename, "rb");
   std::vector<uint8_t> output;
   char buff[1024];
@@ -40,7 +40,7 @@ std::vector<uint8_t> ReadFileIntoString(const char* filename) {
 }
 
 const char* DecryptScript(std::string path) {
-  std::vector<uint8_t>&& content = ReadFileIntoString(path.c_str());
+  std::vector<uint8_t>&& content = ReadFile(path.c_str());
   // std::cout << "content " << content.size() << std::endl;
   size_t len = content.size();
   void* decryp_data = xxtea_decrypt(content.data(), len, ENCRYPT_KEY, &len);
@@ -99,12 +99,31 @@ v8::Local<Value> compileFunction(v8::Isolate* isolate,
 
   return ret;
 }
+
+v8::Local<v8::ArrayBuffer> decryptTea(v8::Isolate* isolate,
+                                      const std::string& file_path) {
+  // get jsc absolute path
+  std::string filePath = file_path;
+  // std::cout << "filePath " << filePath << std::endl;
+  // decrypt content
+  std::vector<uint8_t>&& content = ReadFile(filePath.c_str());
+  // std::cout << "content " << content.size() << std::endl;
+
+  size_t len = content.size();
+  void* decryp_data = xxtea_decrypt(content.data(), len, ENCRYPT_KEY, &len);
+
+  v8::Local<v8::ArrayBuffer> obj = v8::ArrayBuffer::New(isolate, len);
+  memcpy(obj->GetContents().Data(), decryp_data, len);
+  return obj;
+}
+
 void Initialize(v8::Local<v8::Object> exports,
                 v8::Local<v8::Value> unused,
                 v8::Local<v8::Context> context,
                 void* priv) {
   gin_helper::Dictionary dict(context->GetIsolate(), exports);
   dict.SetMethod("test", &compileFunction);
+  dict.SetMethod("test2", &decryptTea);
 }
 
 }  // namespace
