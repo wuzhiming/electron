@@ -17,32 +17,45 @@
 #include "shell/common/node_includes.h"
 
 #include "shell/common/api/xxtea.h"
+#include "shell/common/asar/asar_util.h"
 
 namespace {
 using namespace v8;
 const char* ENCRYPT_KEY = "YDDAD_RUOY_SOHW";
 
 // read file from path
-std::vector<uint8_t> ReadFile(const char* filename) {
-  FILE* fp = fopen(filename, "rb");
-  std::vector<uint8_t> output;
-  char buff[1024];
-  int readn = 0;
-  while ((readn = fread(buff, 1, sizeof(buff), fp)) > 0) {
-    output.insert(output.end(), buff, buff + readn);
-  }
-  if (readn < 0) {
-    // error
-    std::cerr << "ERROR IN READING..." << std::endl;
-  }
-  fclose(fp);
-  return output;
-}
+// std::vector<uint8_t> ReadFile(const char* filename) {
+//   FILE* fp = fopen(filename, "rb");
+//   std::vector<uint8_t> output;
+//   char buff[1024];
+//   int readn = 0;
+//   while ((readn = fread(buff, 1, sizeof(buff), fp)) > 0) {
+//     output.insert(output.end(), buff, buff + readn);
+//   }
+//   if (readn < 0) {
+//     // error
+//     std::cerr << "ERROR IN READING..." << std::endl;
+//   }
+//   fclose(fp);
+//   return output;
+// }
 
 const char* DecryptScript(std::string path) {
-  std::vector<uint8_t>&& content = ReadFile(path.c_str());
+  std::string content;
+#if OS_WIN
+  std::wstring widePath(path.begin(), path.end());
+  ::base::FilePath filePath(widePath);
+#else
+  ::base::FilePath filePath(path);
+#endif
+  bool ret = asar::ReadFileToString(filePath, &content);
+  if (!ret) {  // fail
+    std::cerr << "READ FILE ERROR..." << std::endl;
+    return nullptr;
+  }
+
   // std::cout << "content " << content.size() << std::endl;
-  size_t len = content.size();
+  size_t len = content.length();
   void* decryp_data = xxtea_decrypt(content.data(), len, ENCRYPT_KEY, &len);
   return (const char*)decryp_data;
 }
@@ -103,13 +116,21 @@ v8::Local<Value> compileFunction(v8::Isolate* isolate,
 v8::Local<v8::ArrayBuffer> decryptTea(v8::Isolate* isolate,
                                       const std::string& file_path) {
   // get jsc absolute path
-  std::string filePath = file_path;
-  // std::cout << "filePath " << filePath << std::endl;
-  // decrypt content
-  std::vector<uint8_t>&& content = ReadFile(filePath.c_str());
-  // std::cout << "content " << content.size() << std::endl;
+  std::string content;
+#if OS_WIN
+  std::wstring widePath(file_path.begin(), file_path.end());
+  ::base::FilePath filePath(widePath);
+#else
+  ::base::FilePath filePath(file_path);
+#endif
+  bool ret = asar::ReadFileToString(filePath, &content);
 
-  size_t len = content.size();
+  if (!ret) {  // fail
+    std::cerr << "READ FILE ERROR..." << std::endl;
+    return v8::ArrayBuffer::New(isolate, 0);
+  }
+
+  size_t len = content.length();
   void* decryp_data = xxtea_decrypt(content.data(), len, ENCRYPT_KEY, &len);
 
   v8::Local<v8::ArrayBuffer> obj = v8::ArrayBuffer::New(isolate, len);
